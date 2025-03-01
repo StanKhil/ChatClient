@@ -35,6 +35,8 @@
             cmbContacts.Name = "cmbContacts";
             cmbContacts.Size = new Size(176, 23);
             cmbContacts.TabIndex = 1;
+            cmbContacts.SelectedIndexChanged += cmbContacts_SelectedIndexChanged;
+            cmbContacts.TextChanged += cmbContacts_SelectedIndexChanged;
             // 
             // txtMessage
             // 

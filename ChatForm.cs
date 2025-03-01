@@ -42,6 +42,24 @@ namespace ChatClient
             }
         }
 
+        private void cmbContacts_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string selectedContact = cmbContacts.Text;
+            MessageBox.Show(selectedContact);
+            if (!string.IsNullOrEmpty(selectedContact) && client.messagesInChat.ContainsKey(selectedContact))
+            {
+                lstChat.Items.Clear();
+                string[] messages = client.messagesInChat[selectedContact].Split('\n');
+                foreach (string message in messages)
+                {
+                    if (!string.IsNullOrEmpty(message))
+                    {
+                        lstChat.Items.Add(message);
+                    }
+                }
+            }
+        }
+
         private async void btnSend_Click(object sender, EventArgs e)
         {
             if (client == null || !client.isConnected)
@@ -58,7 +76,14 @@ namespace ChatClient
                 try
                 {
                     await client.SendMessageAsync(recipient, message);
-                    lstChat.Items.Add($"Вы: {message}");
+
+                    string formattedMessage = $"Вы: {message}";
+                    if (!client.messagesInChat.ContainsKey(recipient))
+                        client.messagesInChat[recipient] = "";
+
+                    client.messagesInChat[recipient] += formattedMessage + "\n";
+
+                    lstChat.Items.Add(formattedMessage);
                     txtMessage.Clear();
                 }
                 catch (Exception ex)
@@ -80,7 +105,12 @@ namespace ChatClient
 
                     if (!string.IsNullOrEmpty(receivedMessage))
                     {
-                        Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                        string sender = receivedMessage.Split(':')[0];
+
+                        if (cmbContacts.Text == sender)
+                        {
+                            Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -91,6 +121,8 @@ namespace ChatClient
                 }
             }
         }
+
+
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {

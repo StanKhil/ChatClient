@@ -14,11 +14,13 @@ namespace ChatClient
         private readonly int port;
         private string login;
         public bool isConnected = false;
+        public Dictionary<string, string> messagesInChat = new Dictionary<string, string>();
 
         public Client(string serverIp, int port)
         {
             this.serverIp = serverIp;
             this.port = port;
+
         }
 
         public async Task<string> ConnectAsync(string login)
@@ -96,7 +98,26 @@ namespace ChatClient
                     return "";
                 }
 
-                return Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                if (!string.IsNullOrEmpty(receivedMessage))
+                {
+                    string[] parts = receivedMessage.Split(':', 2);
+                    if (parts.Length == 2)
+                    {
+                        string sender = parts[0];
+                        string message = parts[1];
+
+                        string formattedMessage = $"{sender}: {message}";
+
+                        if (!messagesInChat.ContainsKey(sender))
+                            messagesInChat[sender] = "";
+
+                        messagesInChat[sender] += formattedMessage + "\n";
+                    }
+                }
+
+                return receivedMessage;
             }
             catch
             {
@@ -105,6 +126,7 @@ namespace ChatClient
                 return "";
             }
         }
+
 
         public void Close()
         {
