@@ -45,7 +45,6 @@ namespace ChatClient
         private void cmbContacts_SelectedIndexChanged(object sender, EventArgs e)
         {
             string selectedContact = cmbContacts.Text;
-            MessageBox.Show(selectedContact);
             if (!string.IsNullOrEmpty(selectedContact) && client.messagesInChat.ContainsKey(selectedContact))
             {
                 lstChat.Items.Clear();
@@ -62,36 +61,52 @@ namespace ChatClient
 
         private async void btnSend_Click(object sender, EventArgs e)
         {
+            string recipient = cmbContacts.Text;
+            string message = txtMessage.Text;
+
+            if (!string.IsNullOrEmpty(recipient) && !string.IsNullOrEmpty(message))
+            {
+                await client.SendMessageAsync(recipient, message);
+                lstChat.Items.Add($"Вы: {message}");
+                txtMessage.Clear();
+            }
+        }
+
+        private async void btnSendFile_Click(object sender, EventArgs e)
+        {
             if (client == null || !client.isConnected)
             {
                 MessageBox.Show("Соединение с сервером потеряно!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            string recipient = cmbContacts.Text;
-            string message = txtMessage.Text;
-
-            if (!string.IsNullOrEmpty(recipient) && !string.IsNullOrEmpty(message))
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
             {
-                try
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    await client.SendMessageAsync(recipient, message);
+                    string recipient = cmbContacts.Text;
+                    string filePath = openFileDialog.FileName;
 
-                    string formattedMessage = $"Вы: {message}";
-                    if (!client.messagesInChat.ContainsKey(recipient))
-                        client.messagesInChat[recipient] = "";
+                    if (!string.IsNullOrEmpty(recipient))
+                    {
+                        await client.SendFileAsync(recipient, filePath);
+                        lstChat.Items.Add($"Вы отправили файл: {Path.GetFileName(filePath)}");
+                        if (!client.messagesInChat.ContainsKey(recipient))
+                        {
+                            client.messagesInChat[recipient] = ""; 
+                        }
 
-                    client.messagesInChat[recipient] += formattedMessage + "\n";
-
-                    lstChat.Items.Add(formattedMessage);
-                    txtMessage.Clear();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Ошибка при отправке сообщения: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        client.messagesInChat[recipient] += "Вы отправили файл: " + Path.GetFileName(filePath) + "\n";
+                        MessageBox.Show("Файл успешно отправлен!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Выберите получателя перед отправкой файла!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
             }
         }
+
 
         private async void StartReceivingMessages()
         {
@@ -99,29 +114,28 @@ namespace ChatClient
 
             while (isReceiving && client != null && client.isConnected)
             {
-                try
+                string receivedMessage = await client.ReceiveMessageAsync();
+                if (!string.IsNullOrEmpty(receivedMessage))
                 {
-                    string receivedMessage = await client.ReceiveMessageAsync();
-
-                    if (!string.IsNullOrEmpty(receivedMessage))
+                    if (receivedMessage.StartsWith("FILE:"))
                     {
-                        string sender = receivedMessage.Split(':')[0];
-
-                        if (cmbContacts.Text == sender)
+                        string[] parts = receivedMessage.Substring(5).Split('|');
+                        if (parts.Length == 2)
                         {
-                            Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                            string sender = parts[0];
+                            string fileName = parts[1];
+
+                            await client.ReceiveFileAsync(sender, fileName);
+                            Invoke((MethodInvoker)(() => lstChat.Items.Add($"{sender} отправил файл: {fileName}")));
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Ошибка при получении сообщений: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    isReceiving = false;
-                    break;
+                    else
+                    {
+                        Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                    }
                 }
             }
         }
-
 
 
         protected override void OnFormClosing(FormClosingEventArgs e)

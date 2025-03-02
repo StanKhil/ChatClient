@@ -9,6 +9,7 @@
         private System.Windows.Forms.ListBox lstChat;
         private System.Windows.Forms.Label lblContacts;
         private System.Windows.Forms.Label lblMessage;
+        private System.Windows.Forms.Button btnSendFile; // Добавляем кнопку отправки файлов
 
         protected override void Dispose(bool disposing)
         {
@@ -24,10 +25,12 @@
             cmbContacts = new ComboBox();
             txtMessage = new TextBox();
             btnSend = new Button();
+            btnSendFile = new Button(); // Инициализация кнопки отправки файлов
             lstChat = new ListBox();
             lblContacts = new Label();
             lblMessage = new Label();
             SuspendLayout();
+
             // 
             // cmbContacts
             // 
@@ -54,11 +57,20 @@
             btnSend.Text = "Отправить";
             btnSend.Click += btnSend_Click;
             // 
+            // btnSendFile (новая кнопка)
+            // 
+            btnSendFile.Location = new Point(370, 47);
+            btnSendFile.Name = "btnSendFile";
+            btnSendFile.Size = new Size(100, 23);
+            btnSendFile.TabIndex = 6;
+            btnSendFile.Text = "Отправить файл";
+            btnSendFile.Click += btnSendFile_Click;
+            // 
             // lstChat
             // 
             lstChat.Location = new Point(9, 84);
             lstChat.Name = "lstChat";
-            lstChat.Size = new Size(316, 184);
+            lstChat.Size = new Size(460, 184);
             lstChat.TabIndex = 5;
             // 
             // lblContacts
@@ -89,6 +101,7 @@
             Controls.Add(lblMessage);
             Controls.Add(txtMessage);
             Controls.Add(btnSend);
+            Controls.Add(btnSendFile);
             Controls.Add(lstChat);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             Name = "ChatForm";

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,7 +22,6 @@ namespace ChatClient
         {
             this.serverIp = serverIp;
             this.port = port;
-
         }
 
         public async Task<string> ConnectAsync(string login)
@@ -127,6 +128,103 @@ namespace ChatClient
             }
         }
 
+        public async Task SendFileAsync(string recipient, string filePath)
+        {
+            if (!isConnected) return;
+
+            try
+            {
+                if (!IsFileAvailable(filePath))
+                {
+                    MessageBox.Show("Файл используется другим процессом или заблокирован.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                {
+                    string fileName = Path.GetFileName(filePath);
+                    long fileSize = fileStream.Length;
+
+                    string header = $"{recipient}:FILE: {fileName} {fileSize}\n";
+                    byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+
+                    await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
+                    MessageBox.Show($"Отправлен заголовок: {header}");
+
+                    /*byte[] confirmBuffer = new byte[1024];
+                    int confirmBytes = await stream.ReadAsync(confirmBuffer, 0, confirmBuffer.Length);
+                    string confirmMessage = Encoding.UTF8.GetString(confirmBuffer, 0, confirmBytes).Trim();
+
+                    if (!confirmMessage.StartsWith("OK"))
+                    {
+                        MessageBox.Show($"Ошибка: сервер не принял заголовок! Ответ: {confirmMessage}");
+                        return;
+                    }*/
+
+                    MessageBox.Show($"Сервер принял заголовок, начинаем отправку файла {fileName}");
+
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+
+                    while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await stream.WriteAsync(buffer, 0, bytesRead);
+                    }
+                    MessageBox.Show($"Файл {fileName} отправлен успешно!");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка отправки файла: {ex.Message}");
+            }
+        }
+
+        public async Task ReceiveFileAsync(string sender, string fileName)
+        {
+            try
+            {
+                MessageBox.Show("Start receiving file", "File received", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                string safeFileName = fileName.Trim();
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    safeFileName = safeFileName.Replace(c, '_');
+                }
+
+                string saveDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Downloads");
+                Directory.CreateDirectory(saveDirectory);
+
+                string savePath = Path.Combine(saveDirectory, safeFileName);
+
+                Directory.CreateDirectory("Downloads");
+
+                using (FileStream fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write))
+                {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+
+                    MessageBox.Show("Receiving file", "File received", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                    while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, bytesRead);
+                        if (bytesRead < buffer.Length) break;
+                    }
+
+                    string message = $"Вы приняли файл: {fileName}";
+
+                    if (!messagesInChat.ContainsKey(sender))
+                        messagesInChat[sender] = "";
+
+                    messagesInChat[sender] += message + "\n";
+
+                    MessageBox.Show($"Файл {fileName} загружен в {savePath}", "Файл получен", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Ошибка получения файла", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
 
         public void Close()
         {
@@ -143,6 +241,21 @@ namespace ChatClient
             MessageBox.Show("Переподключение к серверу...", "Соединение потеряно", MessageBoxButtons.OK, MessageBoxIcon.Information);
             await Task.Delay(3000);
             await ConnectAsync(login);
+        }
+
+        private bool IsFileAvailable(string filePath)
+        {
+            try
+            {
+                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
         }
     }
 }
