@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+
 
 namespace ChatClient
 {
@@ -17,6 +13,8 @@ namespace ChatClient
         private string login;
         public bool isConnected = false;
         public Dictionary<string, string> messagesInChat = new Dictionary<string, string>();
+        public List<string> connectedUsers = new List<string>();
+        public event Action<List<string>> ContactsUpdated;
 
         public Client(string serverIp, int port)
         {
@@ -69,62 +67,91 @@ namespace ChatClient
             try
             {
                 string fullMessage = $"{recipient}:{message}";
+                if (!messagesInChat.ContainsKey(recipient))
+                {
+                    messagesInChat[recipient] = $"Вы: {message}\n";
+                }
+                else   messagesInChat[recipient] += $"Вы: {message}\n";
                 byte[] data = Encoding.UTF8.GetBytes(fullMessage);
                 await stream.WriteAsync(data, 0, data.Length);
             }
-            catch
+            catch(Exception ex)
             {
-                MessageBox.Show("Ошибка при отправке сообщения!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Ошибка при отправке сообщения! " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             }
         }
 
         public async Task<string> ReceiveMessageAsync()
         {
-            if (!isConnected || tcpClient == null || !tcpClient.Connected || stream == null)
-            {
-                Reconnect();
-                return "";
-            }
+            if (!CheckConnection()) return "";
 
             try
             {
                 byte[] buffer = new byte[1024];
                 int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-
                 if (bytesRead == 0)
                 {
                     Close();
-                    Reconnect();
+                    await Reconnect();
                     return "";
                 }
 
-                string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                if (!string.IsNullOrEmpty(receivedMessage))
-                {
-                    string[] parts = receivedMessage.Split(':', 2);
-                    if (parts.Length == 2)
-                    {
-                        string sender = parts[0];
-                        string message = parts[1];
-
-                        string formattedMessage = $"{sender}: {message}";
-
-                        if (!messagesInChat.ContainsKey(sender))
-                            messagesInChat[sender] = "";
-
-                        messagesInChat[sender] += formattedMessage + "\n";
-                    }
-                }
-
+                string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
+                ProcessReceivedMessage(receivedMessage);
                 return receivedMessage;
             }
-            catch
+            catch (Exception ex)
             {
-                Close();
-                Reconnect();
+                HandleError("Ошибка при получении сообщения", ex);
                 return "";
+            }
+        }
+
+        private void ProcessReceivedMessage(string receivedMessage)
+        {
+            if (string.IsNullOrEmpty(receivedMessage)) return;
+
+            if (receivedMessage.StartsWith("ADD:"))
+            {
+                string newUser = receivedMessage.Substring(4).Trim();
+                if (!string.IsNullOrWhiteSpace(newUser) && !connectedUsers.Contains(newUser))
+                {
+                    connectedUsers.Add(newUser);
+                    ContactsUpdated?.Invoke(connectedUsers);
+                    MessageBox.Show($"Пользователь {newUser} присоединился к чату!", "Уведомление", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+
+            else if (receivedMessage.StartsWith("REMOVE:"))
+            {
+                string removedUser = receivedMessage.Substring(7);
+                connectedUsers.Remove(removedUser);
+                ContactsUpdated?.Invoke(connectedUsers);
+            }
+            else if (receivedMessage.StartsWith("USERS:"))
+            {
+                connectedUsers = receivedMessage.Substring(6)
+                    .Split(',')
+                    .Where(u => !string.IsNullOrWhiteSpace(u))
+                    .ToList();
+                ContactsUpdated?.Invoke(connectedUsers);
+            }
+            else
+            {
+                string[] parts = receivedMessage.Split(':', 2);
+                if (parts.Length == 2)
+                {
+                    string sender = parts[0];
+                    string message = parts[1];
+
+                    //messagesInChat[sender] = messagesInChat.GetValueOrDefault(sender, "") + $"{sender}: {message}\n";
+                    if(!messagesInChat.ContainsKey(sender))
+                    {
+                        messagesInChat[sender] = "";
+                    }
+                    messagesInChat[sender] += $"{sender}: {message}\n";
+                }
             }
         }
 
@@ -171,6 +198,11 @@ namespace ChatClient
                         await stream.WriteAsync(buffer, 0, bytesRead);
                     }
                     MessageBox.Show($"Файл {fileName} отправлен успешно!");
+                    if(!messagesInChat.ContainsKey(recipient))
+                    {
+                        messagesInChat[recipient] = "";
+                    }
+                    messagesInChat[recipient] += $"Вы отправили файл: {fileName}\n";
                 }
             }
             catch (Exception ex)
@@ -235,7 +267,7 @@ namespace ChatClient
             tcpClient = null;
         }
 
-        private async void Reconnect()
+        private async Task Reconnect()
         {
             Close();
             MessageBox.Show("Переподключение к серверу...", "Соединение потеряно", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -257,5 +289,20 @@ namespace ChatClient
                 return false;
             }
         }
+
+        private void HandleError(string message, Exception ex)
+        {
+            MessageBox.Show($"{message}: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Close();
+        }
+
+        private bool CheckConnection()
+        {
+            if (isConnected && tcpClient?.Connected == true && stream != null) return true;
+
+            MessageBox.Show("Соединение с сервером потеряно!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return false;
+        }
     }
 }
+

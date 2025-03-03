@@ -23,6 +23,7 @@ namespace ChatClient
             try
             {
                 client = new Client("127.0.0.1", 5000);
+                client.ContactsUpdated += UpdateContactsList;
                 string response = await client.ConnectAsync( userLogin);
 
                 if (!string.IsNullOrEmpty(response))
@@ -40,6 +41,18 @@ namespace ChatClient
                 MessageBox.Show("Ошибка при подключении к серверу: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             }
+        }
+
+        private void UpdateContactsList(List<string> users)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => UpdateContactsList(users)));
+                return;
+            }
+
+            cmbContacts.Items.Clear();
+            cmbContacts.Items.AddRange(users.ToArray());
         }
 
         private void cmbContacts_SelectedIndexChanged(object sender, EventArgs e)
@@ -61,9 +74,10 @@ namespace ChatClient
 
         private async void btnSend_Click(object sender, EventArgs e)
         {
-            string recipient = cmbContacts.Text;
+            string recipient = cmbContacts.Text.Trim();
             string message = txtMessage.Text;
 
+            
             if (!string.IsNullOrEmpty(recipient) && !string.IsNullOrEmpty(message))
             {
                 await client.SendMessageAsync(recipient, message);
@@ -84,7 +98,7 @@ namespace ChatClient
             {
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string recipient = cmbContacts.Text;
+                    string recipient = cmbContacts.SelectedItem?.ToString().Trim();
                     string filePath = openFileDialog.FileName;
 
                     if (!string.IsNullOrEmpty(recipient))
@@ -126,12 +140,16 @@ namespace ChatClient
                             string fileName = parts[1];
 
                             await client.ReceiveFileAsync(sender, fileName);
-                            Invoke((MethodInvoker)(() => lstChat.Items.Add($"{sender} отправил файл: {fileName}")));
+                            Invoke((MethodInvoker)(() => lstChat.Items.Add($"{sender}: отправил файл: {fileName}")));
                         }
                     }
                     else
                     {
-                        Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                        if(!receivedMessage.StartsWith("USERS") && !receivedMessage.StartsWith("ADD") && !receivedMessage.StartsWith("REMOVE") && !receivedMessage.StartsWith("OK"))
+                        {
+                            Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                        }
+                        
                     }
                 }
             }

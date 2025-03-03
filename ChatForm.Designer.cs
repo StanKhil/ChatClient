@@ -9,7 +9,7 @@
         private System.Windows.Forms.ListBox lstChat;
         private System.Windows.Forms.Label lblContacts;
         private System.Windows.Forms.Label lblMessage;
-        private System.Windows.Forms.Button btnSendFile; // Добавляем кнопку отправки файлов
+        private System.Windows.Forms.Button btnSendFile;
 
         protected override void Dispose(bool disposing)
         {
@@ -25,7 +25,7 @@
             cmbContacts = new ComboBox();
             txtMessage = new TextBox();
             btnSend = new Button();
-            btnSendFile = new Button(); // Инициализация кнопки отправки файлов
+            btnSendFile = new Button();
             lstChat = new ListBox();
             lblContacts = new Label();
             lblMessage = new Label();
@@ -57,7 +57,7 @@
             btnSend.Text = "Отправить";
             btnSend.Click += btnSend_Click;
             // 
-            // btnSendFile (новая кнопка)
+            // btnSendFile
             // 
             btnSendFile.Location = new Point(370, 47);
             btnSendFile.Name = "btnSendFile";
