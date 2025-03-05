@@ -24,6 +24,8 @@ namespace ChatClient
             {
                 client = new Client("127.0.0.1", 5000);
                 client.ContactsUpdated += UpdateContactsList;
+                client.GroupUpdated += UpdateGroupUsersList;
+                client.GroupAdded += UpdateGroupsList;
                 string response = await client.ConnectAsync( userLogin);
 
                 if (!string.IsNullOrEmpty(response))
@@ -53,6 +55,31 @@ namespace ChatClient
 
             cmbContacts.Items.Clear();
             cmbContacts.Items.AddRange(users.ToArray());
+            cmbAddUser.Items.Clear();
+            cmbAddUser.Items.AddRange(users.ToArray());
+        }
+
+        private void UpdateGroupsList(List<string> groups)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => UpdateGroupsList(groups)));
+                return;
+            }
+            cmbGroups.Items.Clear();
+            cmbGroups.Items.AddRange(groups.ToArray());
+        }   
+
+
+        private void UpdateGroupUsersList(List<string> users)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => UpdateGroupUsersList(users)));
+                return;
+            }
+            lstGroupMembers.Items.Clear();
+            lstGroupMembers.Items.AddRange(users.ToArray());
         }
 
         private void cmbContacts_SelectedIndexChanged(object sender, EventArgs e)
@@ -98,7 +125,7 @@ namespace ChatClient
             {
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string recipient = cmbContacts.SelectedItem?.ToString().Trim();
+                    string recipient = cmbContacts.Text.Trim();
                     string filePath = openFileDialog.FileName;
 
                     if (!string.IsNullOrEmpty(recipient))
@@ -143,17 +170,54 @@ namespace ChatClient
                             Invoke((MethodInvoker)(() => lstChat.Items.Add($"{sender}: отправил файл: {fileName}")));
                         }
                     }
+                    else if (receivedMessage.StartsWith("GROUPFILE:"))
+                    {
+                        string[] parts = receivedMessage.Split(':', 3);
+                        if (parts.Length == 3)
+                        {
+                            string groupName = parts[1];
+                            string[] senderAndFile = parts[2].Split('|');
+
+                            if (senderAndFile.Length == 2)
+                            {
+                                string sender = senderAndFile[0];
+                                string fileName = senderAndFile[1];
+
+                                await client.ReceiveFileAsync(sender, fileName);
+
+                                if (!client.messagesInChat.ContainsKey(groupName))
+                                {
+                                    client.messagesInChat[groupName] = "";
+                                }
+                                client.messagesInChat[groupName] += $"{sender} отправил файл: {fileName}\n";
+
+                                Invoke((MethodInvoker)(() => lstGroupChat.Items.Add($"{sender}: отправил файл {fileName}")));
+                            }
+                        }
+                    }
                     else
                     {
-                        if(!receivedMessage.StartsWith("USERS") && !receivedMessage.StartsWith("ADD") && !receivedMessage.StartsWith("REMOVE") && !receivedMessage.StartsWith("OK"))
+                        if (!receivedMessage.StartsWith("USERS") &&
+                            !receivedMessage.StartsWith("ADD") &&
+                            !receivedMessage.StartsWith("REMOVE") &&
+                            !receivedMessage.StartsWith("OK"))
                         {
-                            Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                            //Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+                            if (receivedMessage.StartsWith("GROUP"))
+                            {
+                                Invoke((MethodInvoker)(() => lstGroupChat.Items.Add(receivedMessage)));
+                            }
+                            else
+                            {
+                                Invoke((MethodInvoker)(() => lstChat.Items.Add(receivedMessage)));
+
+                            }
                         }
-                        
                     }
                 }
             }
         }
+
 
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -161,6 +225,83 @@ namespace ChatClient
             isReceiving = false;
             client?.Close();
             base.OnFormClosing(e);
+        }
+
+
+        private async void btnCreateGroup_Click(object sender, EventArgs e)
+        {
+            client.groups.Add(txtGroupName.Text);
+            client.usersInGroups[txtGroupName.Text] = new List<string>();
+            client.usersInGroups[txtGroupName.Text].Add(userLogin);
+            await client.AddGroup(txtGroupName.Text);
+        }
+
+        private async void btnAddUser_Click(object sender, EventArgs e)
+        {
+            client.usersInGroups[cmbGroups.Text].Add(cmbContacts.Text);
+            await client.UpdateGroup(cmbGroups.Text);
+        }
+
+        private async void btnRemoveUser_Click(object sender, EventArgs e)
+        {
+            client.usersInGroups[cmbGroups.Text].Remove(cmbContacts.Text);
+            await client.UpdateGroup(cmbGroups.Text);
+        }
+
+        private async void btnSendGroupMessage_Click(object sender, EventArgs e)
+        {
+            string recipient = cmbContacts.Text.Trim();
+            string message = txtMessage.Text;
+
+
+            if (!string.IsNullOrEmpty(recipient) && !string.IsNullOrEmpty(message))
+            {
+                foreach(var user in client.usersInGroups[cmbGroups.Text])
+                {
+                    await client.SendMessageAsync(user, message, cmbGroups.Text);
+                }
+                lstChat.Items.Add($"Вы: {message}");
+                txtMessage.Clear();
+            }
+        }
+
+        private async void btnSendGroupFile_Click(object sender, EventArgs e)
+        {
+            if (client == null || !client.isConnected)
+            {
+                MessageBox.Show("Соединение с сервером потеряно!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string recipient = cmbGroups.Text.Trim();
+                    string filePath = openFileDialog.FileName;
+
+                    if (!string.IsNullOrEmpty(recipient))
+                    {
+                        foreach(var user in client.usersInGroups[cmbGroups.Text])
+                        {
+                            await client.SendFileAsync(user, filePath, cmbGroups.Text);
+                        }
+                        await client.SendFileAsync(recipient, filePath);
+                        lstChat.Items.Add($"Вы отправили файл: {Path.GetFileName(filePath)}");
+                        if (!client.messagesInChat.ContainsKey(recipient))
+                        {
+                            client.messagesInChat[recipient] = "";
+                        }
+
+                        client.messagesInChat[recipient] += "Вы отправили файл: " + Path.GetFileName(filePath) + "\n";
+                        MessageBox.Show("Файл успешно отправлен!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Выберите получателя перед отправкой файла!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            }
         }
     }
 }

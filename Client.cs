@@ -14,7 +14,11 @@ namespace ChatClient
         public bool isConnected = false;
         public Dictionary<string, string> messagesInChat = new Dictionary<string, string>();
         public List<string> connectedUsers = new List<string>();
+        public Dictionary<string,List<string>> usersInGroups = new Dictionary<string, List<string>>();
+        public List<string> groups = new List<string>();
         public event Action<List<string>> ContactsUpdated;
+        public event Action<List<string>> GroupUpdated;
+        public event Action<List<string>> GroupAdded;
 
         public Client(string serverIp, int port)
         {
@@ -56,7 +60,7 @@ namespace ChatClient
             }
         }
 
-        public async Task SendMessageAsync(string recipient, string message)
+        public async Task SendMessageAsync(string recipient, string message, string group = "")
         {
             if (!isConnected || tcpClient == null || !tcpClient.Connected || stream == null)
             {
@@ -66,21 +70,43 @@ namespace ChatClient
 
             try
             {
-                string fullMessage = $"{recipient}:{message}";
-                if (!messagesInChat.ContainsKey(recipient))
+                string fullMessage;
+                if (string.IsNullOrEmpty(group))
                 {
-                    messagesInChat[recipient] = $"Вы: {message}\n";
+                    fullMessage = $"MESSAGE:{recipient}:{message}\n";
+                    if (!messagesInChat.ContainsKey(recipient))
+                    {
+                        messagesInChat[recipient] = $"Вы: {message}\n";
+                    }
+                    else
+                    {
+                        messagesInChat[recipient] += $"Вы: {message}\n";
+                    }
                 }
-                else   messagesInChat[recipient] += $"Вы: {message}\n";
+                else
+                {
+                    fullMessage = $"MESSAGE:GROUP:{group}:{recipient}:{message}\n";
+                    if (!messagesInChat.ContainsKey(group))
+                    {
+                        messagesInChat[group] = $"Вы в группе {group}: {message}\n";
+                    }
+                    else
+                    {
+                        messagesInChat[group] += $"Вы в группе {group}: {message}\n";
+                    }
+                }
+
                 byte[] data = Encoding.UTF8.GetBytes(fullMessage);
                 await stream.WriteAsync(data, 0, data.Length);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 MessageBox.Show("Ошибка при отправке сообщения! " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             }
         }
+
+
 
         public async Task<string> ReceiveMessageAsync()
         {
@@ -122,7 +148,6 @@ namespace ChatClient
                     MessageBox.Show($"Пользователь {newUser} присоединился к чату!", "Уведомление", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
-
             else if (receivedMessage.StartsWith("REMOVE:"))
             {
                 string removedUser = receivedMessage.Substring(7);
@@ -137,6 +162,46 @@ namespace ChatClient
                     .ToList();
                 ContactsUpdated?.Invoke(connectedUsers);
             }
+            else if(receivedMessage.StartsWith("ADDGROUP:"))
+            {
+                List<string> newGroups = receivedMessage.Substring(7)
+                    .Split(',')
+                    .Where(g => !string.IsNullOrWhiteSpace(g))
+                    .ToList();
+                for(int i=0;i< newGroups.Count; i++)
+                {
+                    if (!groups.Contains(newGroups[i]))
+                    {
+                        groups.Add(newGroups[i]);
+                    }
+                }
+                ContactsUpdated?.Invoke(connectedUsers);
+            }
+            else if (receivedMessage.StartsWith("UPDATEGROUP:"))
+            {
+                string[] parts = receivedMessage.Substring(6).Split(':');
+                string groupName = parts[0];
+                List<string> users = parts[1].Split(',').ToList();
+                usersInGroups[groupName] = users;
+                GroupUpdated?.Invoke(users);
+            }
+            else if (receivedMessage.StartsWith("GROUP:"))
+            {
+                string[] partsGroup = receivedMessage.Split(':', 4);
+                if (partsGroup.Length == 4)
+                {
+                    string groupName = partsGroup[1];
+                    string sender = partsGroup[2];
+                    string message = partsGroup[3];
+
+                    if (!messagesInChat.ContainsKey(groupName))
+                    {
+                        messagesInChat[groupName] = "";
+                    }
+
+                    messagesInChat[groupName] += $"{sender}: {message}\n";
+                }
+            }
             else
             {
                 string[] parts = receivedMessage.Split(':', 2);
@@ -144,8 +209,6 @@ namespace ChatClient
                 {
                     string sender = parts[0];
                     string message = parts[1];
-
-                    //messagesInChat[sender] = messagesInChat.GetValueOrDefault(sender, "") + $"{sender}: {message}\n";
                     if(!messagesInChat.ContainsKey(sender))
                     {
                         messagesInChat[sender] = "";
@@ -155,7 +218,7 @@ namespace ChatClient
             }
         }
 
-        public async Task SendFileAsync(string recipient, string filePath)
+        public async Task SendFileAsync(string recipient, string filePath, string group = "")
         {
             if (!isConnected) return;
 
@@ -172,37 +235,29 @@ namespace ChatClient
                     string fileName = Path.GetFileName(filePath);
                     long fileSize = fileStream.Length;
 
-                    string header = $"{recipient}:FILE: {fileName} {fileSize}\n";
+                    string header = group == ""
+                        ? $"FILE:{recipient}:{fileName}:{fileSize}\n"
+                        : $"FILE:GROUP:{group}:{fileName}:{fileSize}\n";
+
                     byte[] headerBytes = Encoding.UTF8.GetBytes(header);
-
                     await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
-                    MessageBox.Show($"Отправлен заголовок: {header}");
+                    await stream.FlushAsync();
 
-                    /*byte[] confirmBuffer = new byte[1024];
-                    int confirmBytes = await stream.ReadAsync(confirmBuffer, 0, confirmBuffer.Length);
-                    string confirmMessage = Encoding.UTF8.GetString(confirmBuffer, 0, confirmBytes).Trim();
-
-                    if (!confirmMessage.StartsWith("OK"))
-                    {
-                        MessageBox.Show($"Ошибка: сервер не принял заголовок! Ответ: {confirmMessage}");
-                        return;
-                    }*/
-
-                    MessageBox.Show($"Сервер принял заголовок, начинаем отправку файла {fileName}");
-
-                    byte[] buffer = new byte[1024];
+                    byte[] buffer = new byte[4096];
                     int bytesRead;
-
                     while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                     {
                         await stream.WriteAsync(buffer, 0, bytesRead);
+                        await stream.FlushAsync();
                     }
+
                     MessageBox.Show($"Файл {fileName} отправлен успешно!");
-                    if(!messagesInChat.ContainsKey(recipient))
+                    string chatKey = group == "" ? recipient : group;
+                    if (!messagesInChat.ContainsKey(chatKey))
                     {
-                        messagesInChat[recipient] = "";
+                        messagesInChat[chatKey] = "";
                     }
-                    messagesInChat[recipient] += $"Вы отправили файл: {fileName}\n";
+                    messagesInChat[chatKey] += $"Вы отправили файл: {fileName}\n";
                 }
             }
             catch (Exception ex)
@@ -210,6 +265,8 @@ namespace ChatClient
                 MessageBox.Show($"Ошибка отправки файла: {ex.Message}");
             }
         }
+
+
 
         public async Task ReceiveFileAsync(string sender, string fileName)
         {
@@ -256,6 +313,21 @@ namespace ChatClient
             {
                 MessageBox.Show(ex.Message, "Ошибка получения файла", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+
+        public async Task AddGroup(string groupName)
+        {
+            string message = $"ADDGROUP:{groupName}\n";
+            byte[] data = Encoding.UTF8.GetBytes(message);
+            await stream.WriteAsync(data, 0, data.Length);
+        }
+
+        public async Task UpdateGroup(string groupName)
+        {
+            string message = $"UPDATEGROUP:{groupName}:{string.Join(",", usersInGroups[groupName])}\n";
+            byte[] data = Encoding.UTF8.GetBytes(message);
+            await stream.WriteAsync(data, 0, data.Length);
         }
 
         public void Close()
