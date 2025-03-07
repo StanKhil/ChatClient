@@ -21,7 +21,7 @@ namespace ChatClient
 
             if (string.IsNullOrEmpty(UserLogin))
             {
-                MessageBox.Show("Введите логин!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Введіть логин!", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -33,7 +33,7 @@ namespace ChatClient
 
                 if (loginSuccess == "OK")
                 {
-                    MessageBox.Show("Вы успешно вошли!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Успіщно увійшли!", "Успіх", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                     DialogResult = DialogResult.OK;
                     client.Close();
@@ -42,13 +42,13 @@ namespace ChatClient
                 }
                 else
                 {
-                    MessageBox.Show("Этот логин уже используется!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Цей логін вже використовується!", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     txtLogin.Clear();
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка подключения: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Помилка підключення: {ex.Message}", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

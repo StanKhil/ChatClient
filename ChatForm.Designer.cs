@@ -83,7 +83,7 @@
             btnSend.Name = "btnSend";
             btnSend.Size = new Size(70, 23);
             btnSend.TabIndex = 4;
-            btnSend.Text = "Отправить";
+            btnSend.Text = "Надіслати";
             btnSend.Click += btnSend_Click;
             // 
             // btnSendFile
@@ -92,7 +92,7 @@
             btnSendFile.Name = "btnSendFile";
             btnSendFile.Size = new Size(100, 23);
             btnSendFile.TabIndex = 6;
-            btnSendFile.Text = "Отправить файл";
+            btnSendFile.Text = "Надіслати файл";
             btnSendFile.Click += btnSendFile_Click;
             // 
             // lstChat
@@ -109,7 +109,7 @@
             lblContacts.Name = "lblContacts";
             lblContacts.Size = new Size(62, 15);
             lblContacts.TabIndex = 0;
-            lblContacts.Text = "Контакты:";
+            lblContacts.Text = "Контакти:";
             // 
             // lblMessage
             // 
@@ -118,7 +118,7 @@
             lblMessage.Name = "lblMessage";
             lblMessage.Size = new Size(76, 15);
             lblMessage.TabIndex = 2;
-            lblMessage.Text = "Сообщение:";
+            lblMessage.Text = "Повідомлення:";
             // 
             // lblGroupName
             // 
@@ -127,7 +127,7 @@
             lblGroupName.Name = "lblGroupName";
             lblGroupName.Size = new Size(106, 15);
             lblGroupName.TabIndex = 0;
-            lblGroupName.Text = "Название группы:";
+            lblGroupName.Text = "Назва групи:";
             // 
             // txtGroupName
             // 
@@ -142,7 +142,7 @@
             btnCreateGroup.Name = "btnCreateGroup";
             btnCreateGroup.Size = new Size(75, 23);
             btnCreateGroup.TabIndex = 2;
-            btnCreateGroup.Text = "Создать группу";
+            btnCreateGroup.Text = "Створити";
             btnCreateGroup.Click += btnCreateGroup_Click;
             // 
             // cmbGroups
@@ -151,6 +151,8 @@
             cmbGroups.Name = "cmbGroups";
             cmbGroups.Size = new Size(150, 23);
             cmbGroups.TabIndex = 3;
+            cmbGroups.SelectedIndexChanged += cmbGroups_SelectedIndexChanged;
+            cmbGroups.TextChanged += cmbGroups_SelectedIndexChanged;
             // 
             // lblAddUser
             // 
@@ -159,7 +161,7 @@
             lblAddUser.Name = "lblAddUser";
             lblAddUser.Size = new Size(140, 15);
             lblAddUser.TabIndex = 4;
-            lblAddUser.Text = "Добавить пользователя:";
+            lblAddUser.Text = "Додати:";
             // 
             // cmbAddUser
             // 
@@ -174,7 +176,7 @@
             btnAddUser.Name = "btnAddUser";
             btnAddUser.Size = new Size(75, 23);
             btnAddUser.TabIndex = 6;
-            btnAddUser.Text = "Добавить";
+            btnAddUser.Text = "Додати";
             btnAddUser.Click += btnAddUser_Click;
             // 
             // lblRemoveUser
@@ -184,7 +186,7 @@
             lblRemoveUser.Name = "lblRemoveUser";
             lblRemoveUser.Size = new Size(132, 15);
             lblRemoveUser.TabIndex = 7;
-            lblRemoveUser.Text = "Удалить пользователя:";
+            lblRemoveUser.Text = "Видалити:";
             // 
             // cmbRemoveUser
             // 
@@ -199,7 +201,7 @@
             btnRemoveUser.Name = "btnRemoveUser";
             btnRemoveUser.Size = new Size(75, 23);
             btnRemoveUser.TabIndex = 9;
-            btnRemoveUser.Text = "Удалить";
+            btnRemoveUser.Text = "Видалити";
             btnRemoveUser.Click += btnRemoveUser_Click;
             // 
             // lstGroupMembers
@@ -229,7 +231,7 @@
             btnSendGroupMessage.Name = "btnSendGroupMessage";
             btnSendGroupMessage.Size = new Size(75, 23);
             btnSendGroupMessage.TabIndex = 13;
-            btnSendGroupMessage.Text = "Отправить";
+            btnSendGroupMessage.Text = "Надіслати";
             btnSendGroupMessage.Click += btnSendGroupMessage_Click;
             // 
             // btnSendGroupFile
@@ -238,7 +240,7 @@
             btnSendGroupFile.Name = "btnSendGroupFile";
             btnSendGroupFile.Size = new Size(75, 23);
             btnSendGroupFile.TabIndex = 14;
-            btnSendGroupFile.Text = "Отправить файл";
+            btnSendGroupFile.Text = "Надіслати файл";
             btnSendGroupFile.Click += btnSendGroupFile_Click;
             // 
             // ChatForm

@@ -36,7 +36,7 @@
             btnLogin.Name = "btnLogin";
             btnLogin.Size = new Size(175, 28);
             btnLogin.TabIndex = 2;
-            btnLogin.Text = "Войти";
+            btnLogin.Text = "Увійти";
             btnLogin.Click += btnLogin_Click;
             // 
             // lblLogin
@@ -46,7 +46,7 @@
             lblLogin.Name = "lblLogin";
             lblLogin.Size = new Size(89, 15);
             lblLogin.TabIndex = 0;
-            lblLogin.Text = "Введите логин:";
+            lblLogin.Text = "Введіть логін:";
             // 
             // Login
             // 
@@ -59,7 +59,7 @@
             FormBorderStyle = FormBorderStyle.FixedDialog;
             Name = "Login";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "Вход в чат";
+            Text = "Вхід у чат";
             ResumeLayout(false);
             PerformLayout();
         }

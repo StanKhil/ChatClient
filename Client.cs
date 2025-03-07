@@ -17,7 +17,7 @@ namespace ChatClient
         public Dictionary<string,List<string>> usersInGroups = new Dictionary<string, List<string>>();
         public List<string> groups = new List<string>();
         public event Action<List<string>> ContactsUpdated;
-        public event Action<List<string>> GroupUpdated;
+        public event Action<List<string>,string> GroupUpdated;
         public event Action<List<string>> GroupAdded;
 
         public Client(string serverIp, int port)
@@ -44,7 +44,7 @@ namespace ChatClient
 
                 if (response == "ERROR")
                 {
-                    MessageBox.Show("Этот логин уже используется!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Цей логін вже використовується!", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     Close();
                     return "";
                 }
@@ -54,7 +54,7 @@ namespace ChatClient
             }
             catch
             {
-                MessageBox.Show("Ошибка подключения к серверу!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Помилка при підключені до сервера!", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
                 return "";
             }
@@ -64,7 +64,7 @@ namespace ChatClient
         {
             if (!isConnected || tcpClient == null || !tcpClient.Connected || stream == null)
             {
-                MessageBox.Show("Соединение с сервером потеряно!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("З'днання втрачено!", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -76,11 +76,11 @@ namespace ChatClient
                     fullMessage = $"MESSAGE:{recipient}:{message}\n";
                     if (!messagesInChat.ContainsKey(recipient))
                     {
-                        messagesInChat[recipient] = $"Вы: {message}\n";
+                        messagesInChat[recipient] = $"Ви: {message}\n";
                     }
                     else
                     {
-                        messagesInChat[recipient] += $"Вы: {message}\n";
+                        messagesInChat[recipient] += $"Ви: {message}\n";
                     }
                 }
                 else
@@ -88,11 +88,11 @@ namespace ChatClient
                     fullMessage = $"MESSAGE:GROUP:{group}:{recipient}:{message}\n";
                     if (!messagesInChat.ContainsKey(group))
                     {
-                        messagesInChat[group] = $"Вы в группе {group}: {message}\n";
+                        messagesInChat[group] = $"Ви: {message}\n";
                     }
                     else
                     {
-                        messagesInChat[group] += $"Вы в группе {group}: {message}\n";
+                        messagesInChat[group] += $"Ви: {message}\n";
                     }
                 }
 
@@ -101,12 +101,10 @@ namespace ChatClient
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Ошибка при отправке сообщения! " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Помилка при відправці повідомлення! " + ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             }
         }
-
-
 
         public async Task<string> ReceiveMessageAsync()
         {
@@ -129,7 +127,7 @@ namespace ChatClient
             }
             catch (Exception ex)
             {
-                HandleError("Ошибка при получении сообщения", ex);
+                HandleError("Помилка при отриманні повідомлення", ex);
                 return "";
             }
         }
@@ -145,7 +143,6 @@ namespace ChatClient
                 {
                     connectedUsers.Add(newUser);
                     ContactsUpdated?.Invoke(connectedUsers);
-                    MessageBox.Show($"Пользователь {newUser} присоединился к чату!", "Уведомление", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             else if (receivedMessage.StartsWith("REMOVE:"))
@@ -164,7 +161,7 @@ namespace ChatClient
             }
             else if(receivedMessage.StartsWith("ADDGROUP:"))
             {
-                List<string> newGroups = receivedMessage.Substring(7)
+                List<string> newGroups = receivedMessage.Substring(9)
                     .Split(',')
                     .Where(g => !string.IsNullOrWhiteSpace(g))
                     .ToList();
@@ -175,15 +172,15 @@ namespace ChatClient
                         groups.Add(newGroups[i]);
                     }
                 }
-                ContactsUpdated?.Invoke(connectedUsers);
+                GroupAdded?.Invoke(groups);
             }
             else if (receivedMessage.StartsWith("UPDATEGROUP:"))
             {
-                string[] parts = receivedMessage.Substring(6).Split(':');
-                string groupName = parts[0];
-                List<string> users = parts[1].Split(',').ToList();
+                string[] parts = receivedMessage.Substring(11).Split(':');
+                string groupName = parts[1];
+                List<string> users = parts[2].Split(',').ToList();
                 usersInGroups[groupName] = users;
-                GroupUpdated?.Invoke(users);
+                GroupUpdated?.Invoke(users,groupName);
             }
             else if (receivedMessage.StartsWith("GROUP:"))
             {
@@ -201,6 +198,7 @@ namespace ChatClient
 
                     messagesInChat[groupName] += $"{sender}: {message}\n";
                 }
+                
             }
             else
             {
@@ -226,7 +224,7 @@ namespace ChatClient
             {
                 if (!IsFileAvailable(filePath))
                 {
-                    MessageBox.Show("Файл используется другим процессом или заблокирован.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Файл недоступний.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -251,22 +249,20 @@ namespace ChatClient
                         await stream.FlushAsync();
                     }
 
-                    MessageBox.Show($"Файл {fileName} отправлен успешно!");
+                    MessageBox.Show($"Файл {fileName} надіслано!");
                     string chatKey = group == "" ? recipient : group;
                     if (!messagesInChat.ContainsKey(chatKey))
                     {
                         messagesInChat[chatKey] = "";
                     }
-                    messagesInChat[chatKey] += $"Вы отправили файл: {fileName}\n";
+                    messagesInChat[chatKey] += $"Ви надіслали файл: {fileName}\n";
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка отправки файла: {ex.Message}");
+                MessageBox.Show($"Помилка відправки файла: {ex.Message}");
             }
         }
-
-
 
         public async Task ReceiveFileAsync(string sender, string fileName)
         {
@@ -299,7 +295,7 @@ namespace ChatClient
                         if (bytesRead < buffer.Length) break;
                     }
 
-                    string message = $"Вы приняли файл: {fileName}";
+                    string message = $"Ви приняли файл: {fileName}";
 
                     if (!messagesInChat.ContainsKey(sender))
                         messagesInChat[sender] = "";
@@ -311,10 +307,9 @@ namespace ChatClient
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка получения файла", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Помилка получения файла", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
 
         public async Task AddGroup(string groupName)
         {
@@ -342,7 +337,7 @@ namespace ChatClient
         private async Task Reconnect()
         {
             Close();
-            MessageBox.Show("Переподключение к серверу...", "Соединение потеряно", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Перепідключення до сервера...", "Втрата з'єднання", MessageBoxButtons.OK, MessageBoxIcon.Information);
             await Task.Delay(3000);
             await ConnectAsync(login);
         }
@@ -364,7 +359,7 @@ namespace ChatClient
 
         private void HandleError(string message, Exception ex)
         {
-            MessageBox.Show($"{message}: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"{message}: {ex.Message}", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             Close();
         }
 
@@ -372,7 +367,7 @@ namespace ChatClient
         {
             if (isConnected && tcpClient?.Connected == true && stream != null) return true;
 
-            MessageBox.Show("Соединение с сервером потеряно!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("З'єднання втрачено", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return false;
         }
     }
